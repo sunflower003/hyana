@@ -14,9 +14,14 @@ const app = express();
 // Middleware
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://hyana.vercel.app'] // ✅ Update with actual frontend URL
+    ? [
+        'https://hyana.vercel.app', // ✅ Your actual Vercel frontend URL
+        'https://*.vercel.app' // ✅ Allow all Vercel preview deployments
+      ]
     : ['http://localhost:3000', 'http://localhost:5173'],
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json({ limit: '10mb' }));

@@ -1,11 +1,15 @@
 import axios from 'axios';
 
-// Cấu hình base URL cho API
-const API_BASE_URL = 'http://localhost:5000/api';
+// ✅ FIXED: Use production backend URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+  (import.meta.env.MODE === 'production' 
+    ? 'https://hyana.onrender.com/api' // ✅ Add /api prefix
+    : 'http://localhost:5000/api');
 
 // Tạo axios instance
 const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },

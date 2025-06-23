@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-// ✅ FIXED: Use proper backend URL for production
+// ✅ FIXED: Use production backend URL
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
   (import.meta.env.MODE === 'production' 
-    ? 'https://hyana.onrender.com' // ✅ Remove trailing slash and use correct URL
-    : 'http://localhost:5000');
+    ? 'https://hyana.onrender.com/api' // ✅ Add /api prefix and use correct URL
+    : 'http://localhost:5000/api'); // ✅ Add /api prefix for consistency
 
 console.log('🌐 Environment:', import.meta.env.MODE);
 console.log('🌐 API Base URL:', API_BASE_URL);
