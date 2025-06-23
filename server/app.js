@@ -14,7 +14,7 @@ const app = express();
 // Middleware
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://hyana-gold-analysis.onrender.com', 'https://hyana-frontend.onrender.com'] // ✅ Replace with actual frontend URL
+    ? ['https://hyana.vercel.app'] // ✅ Update with actual frontend URL
     : ['http://localhost:3000', 'http://localhost:5173'],
   credentials: true
 }));

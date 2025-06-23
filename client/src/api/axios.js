@@ -1,8 +1,14 @@
 import axios from 'axios';
 
+// ✅ UPDATE: Use production API URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+  (import.meta.env.MODE === 'production' 
+    ? 'https://hyana.onrender.com/' // ✅ Replace with actual backend URL
+    : 'http://localhost:5000');
+
 // Create axios instance
 const api = axios.create({
-  baseURL: 'http://localhost:5000',
+  baseURL: API_BASE_URL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
