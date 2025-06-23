@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-// ✅ FIXED: Use production backend URL
+// ✅ FIXED: Remove /api from base URL since API calls already include it
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
   (import.meta.env.MODE === 'production' 
-    ? 'https://hyana.onrender.com/api' // ✅ Add /api prefix and use correct URL
-    : 'http://localhost:5000/api'); // ✅ Add /api prefix for consistency
+    ? 'https://hyana.onrender.com' // ✅ Remove /api from here
+    : 'http://localhost:5000'); // ✅ Remove /api from here too
 
 console.log('🌐 Environment:', import.meta.env.MODE);
 console.log('🌐 API Base URL:', API_BASE_URL);
@@ -12,7 +12,7 @@ console.log('🌐 API Base URL:', API_BASE_URL);
 // Create axios instance
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 15000, // ✅ Increased timeout for Render cold starts
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },

@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-// ✅ FIXED: Use production backend URL
+// ✅ FIXED: Remove /api from base URL
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
   (import.meta.env.MODE === 'production' 
-    ? 'https://hyana.onrender.com/api' // ✅ Add /api prefix
-    : 'http://localhost:5000/api');
+    ? 'https://hyana.onrender.com' // ✅ Remove /api prefix
+    : 'http://localhost:5000');
 
 // Tạo axios instance
 const api = axios.create({
