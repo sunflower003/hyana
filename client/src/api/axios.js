@@ -1,15 +1,18 @@
 import axios from 'axios';
 
-// ✅ UPDATE: Use production API URL
+// ✅ FIXED: Use proper backend URL for production
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
   (import.meta.env.MODE === 'production' 
-    ? 'https://hyana.onrender.com/' // ✅ Replace with actual backend URL
+    ? 'https://hyana.onrender.com' // ✅ Remove trailing slash and use correct URL
     : 'http://localhost:5000');
+
+console.log('🌐 Environment:', import.meta.env.MODE);
+console.log('🌐 API Base URL:', API_BASE_URL);
 
 // Create axios instance
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 15000, // ✅ Increased timeout for Render cold starts
   headers: {
     'Content-Type': 'application/json',
   },
@@ -37,7 +40,7 @@ api.interceptors.response.use(
       // Token expired or invalid
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      window.location.href = '/';
     }
     return Promise.reject(error);
   }
