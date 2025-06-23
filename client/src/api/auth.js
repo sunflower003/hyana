@@ -1,9 +1,9 @@
 import axios from 'axios';
 
-// ✅ FIXED: Remove /api from base URL
+// ✅ Keep base URL without /api
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
   (import.meta.env.MODE === 'production' 
-    ? 'https://hyana.onrender.com' // ✅ Remove /api prefix
+    ? 'https://hyana.onrender.com'
     : 'http://localhost:5000');
 
 // Tạo axios instance
@@ -34,7 +34,8 @@ export const authAPI = {
   // Đăng nhập
   login: async (email, password) => {
     try {
-      const response = await api.post('/auth/login', { email, password });
+      // ✅ FIXED: Add /api prefix
+      const response = await api.post('/api/auth/login', { email, password });
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Lỗi kết nối server' };
@@ -44,7 +45,8 @@ export const authAPI = {
   // Đăng ký
   register: async (fullName, email, password) => {
     try {
-      const response = await api.post('/auth/register', { fullName, email, password });
+      // ✅ FIXED: Add /api prefix
+      const response = await api.post('/api/auth/register', { fullName, email, password });
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Lỗi kết nối server' };
@@ -54,7 +56,8 @@ export const authAPI = {
   // Lấy thông tin user hiện tại
   getMe: async () => {
     try {
-      const response = await api.get('/auth/me');
+      // ✅ FIXED: Add /api prefix
+      const response = await api.get('/api/auth/me');
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Lỗi kết nối server' };
