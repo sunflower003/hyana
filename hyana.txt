@@ -1,0 +1,301 @@
+# 🧾 MÔ TẢ BÀI TOÁN: **TRỢ LÝ GIAO DỊCH VÀNG 4H TÍCH HỢP AI**
+
+## 🎯 Mục tiêu hệ thống
+
+Xây dựng một **website cá nhân hỗ trợ swing trading vàng (XAUUSD)**, có khả năng:
+
+- 🧠 **Đưa ra lệnh gợi ý BUY/SELL/HOLD** trên khung thời gian **4H**
+- 📈 **Phân tích kỹ thuật tự động** từ dữ liệu giá real-time
+- 📰 **Phân tích sentiment tin tức bằng AI NLP**
+- 📊 **Diễn giải tác động của các chỉ số kinh tế vĩ mô** (CPI, Fed, DXY...)
+- 🖥️ Trình bày thông tin theo cách đơn giản, minh bạch và dễ hiểu
+
+---
+
+## 🔧 Cách hoạt động
+
+1. **Tự động lấy dữ liệu giá vàng 4H** → tính RSI, MACD, EMA, Volume
+2. **Lấy tin tức từ API (NewsAPI, GNews...)** → dùng AI (HuggingFace) để phân tích sentiment
+3. **Lấy dữ liệu kinh tế từ FRED/Finnhub** → phân tích dựa trên rule mapping
+4. **Tổng hợp 3 nguồn (kỹ thuật + news + vĩ mô)** để tạo gợi ý giao dịch cuối
+5. **Trình bày trên website** dưới dạng tin tức + tín hiệu + giải thích lý do
+
+---
+
+## 🧱 CẤU TRÚC DATABASE
+
+### 1. `gold_trade_signals` – Tín hiệu giao dịch tổng hợp
+
+```json
+{
+  "_id": ObjectId,
+  "timeframe": "4H",
+  "action": "BUY",                    // BUY | SELL | HOLD
+  "confidence": 82,                  // Mức tin cậy (0–100)
+  "entryZone": [2325.0, 2328.0],
+  "stopLoss": 2308.0,
+  "takeProfit": 2365.0,
+  "reasoning": [
+    "MACD bullish crossover",
+    "RSI 63.5 (chưa quá mua)",
+    "Volume tăng mạnh",
+    "Tin tức Fed dovish",
+    "CPI thấp hơn dự báo → USD yếu → GOLD tăng"
+  ],
+  "summary": "Kỹ thuật và vĩ mô đều ủng hộ xu hướng tăng giá vàng",
+  "createdAt": ISODate
+}
+
+```
+
+---
+
+### 2. `gold_news` – Tin tức + phân tích sentiment AI
+
+```json
+{
+  "_id": ObjectId,
+  "title": "Fed Signals Pause in Rate Hikes",
+  "source": "Reuters",
+  "publishedAt": ISODate,
+  "content": "Fed Chairman Powell announced...",
+  "aiSentiment": "dovish_usd",         // Output từ mô hình AI
+  "impactOnGold": "positive",          // Mapping từ sentiment
+  "confidence": 88,                    // Mức chắc chắn AI phân tích
+  "summary": "Fed ngưng tăng lãi suất → USD yếu → GOLD tăng"
+}
+
+```
+
+---
+
+### 3. `gold_technical_4h` – Snapshot kỹ thuật 4H
+
+```json
+{
+  "_id": ObjectId,
+  "timestamp": ISODate,
+  "price": {
+    "open": 2320.5,
+    "high": 2335.0,
+    "low": 2315.0,
+    "close": 2330.2
+  },
+  "indicators": {
+    "RSI": 63.5,
+    "MACD": {
+      "macd": 0.012,
+      "signal": 0.005,
+      "histogram": 0.007,
+      "trend": "bullish_cross"
+    },
+    "EMA_20": 2324.1,
+    "EMA_50": 2318.0,
+    "VolumeRatio": 1.32,              // So với MA5
+    "trend": "uptrend"
+  },
+  "supportResistance": {
+    "support": [2310, 2295],
+    "resistance": [2345, 2365]
+  }
+}
+
+```
+
+---
+
+### 4. `economic_factors` – Dữ liệu kinh tế vĩ mô
+
+```json
+{
+  "_id": ObjectId,
+  "eventName": "US CPI (YoY)",
+  "releaseDate": ISODate,
+  "actual": 2.8,
+  "forecast": 3.1,
+  "previous": 3.3,
+  "sentiment": "dovish_usd",         // Dựa trên logic mapping
+  "impactOnGold": "positive",
+  "note": "Lạm phát thấp hơn dự báo → kỳ vọng Fed nới lỏng → GOLD tăng"
+}
+
+```
+
+---
+
+### 5. user
+
+```json
+{
+  "_id": ObjectId,
+	"fullName": Nguyen Huy,
+	"email": huylee63897@gmail.com,
+	"passwordHarshed":.....
+}
+
+```
+
+---
+
+## 🤖 PHÂN TÍCH TỰ ĐỘNG
+
+| Thành phần | Phân tích bởi | Công cụ |
+| --- | --- | --- |
+| Tin tức | ✅ AI NLP | HuggingFace API (`distilbert-sst`, hoặc fine-tuned) |
+| Kỹ thuật | ✅ Logic code | Tính MACD, RSI, EMA, Volume |
+| Dữ liệu kinh tế | ✅ Rule mapping | So sánh actual vs forecast |
+
+---
+
+## 🔁 Luồng cập nhật hệ thống
+
+| Thời gian | Tác vụ |
+| --- | --- |
+| ⏱ Mỗi 30 phút | Cập nhật giá XAUUSD |
+| ⏱ Mỗi 1 giờ | Tính các chỉ báo kỹ thuật |
+| ⏱ Mỗi 2 giờ | Lấy tin tức và phân tích sentiment bằng AI |
+| ⏱ Mỗi 12 giờ | Lấy dữ liệu kinh tế mới |
+| ⚙️ Tự động | Sinh tín hiệu giao dịch `gold_trade_signals` |
+
+---
+
+## 🖥️ Giao diện hiển thị (trên web)
+
+```
+=== 📰 TIN NÓNG ===
+✔️ "Fed Signals Pause" → dovish USD → GOLD tăng
+✔️ "Tensions in Middle East" → risk-on → GOLD tăng
+
+=== 📈 GỢI Ý GIAO DỊCH (4H) ===
+Hành động: ✅ MUA
+Confidence: 82%
+Entry: 2325 – 2328 | SL: 2308 | TP: 2365
+Lý do:
+✔ MACD bullish crossover
+✔ RSI 63.5 (chưa quá mua)
+✔ Volume breakout
+✔ Tin tức Fed dovish
+✔ CPI thấp → USD yếu → GOLD tăng
+
+```
+
+---
+
+## ✅ Tóm tắt lợi ích
+
+- **Cá nhân hóa 100%** cho người dùng chỉ trade XAUUSD
+- **Không phụ thuộc vào con người nhập tay**
+- **AI giúp hiểu ngữ nghĩa và sentiment trong tin tức**
+- **Rule logic giúp tính toán và kiểm soát quyết định**
+- **Dễ mở rộng, nâng cấp trong tương lai**
+
+# 🧱 CÔNG NGHỆ PHÁT TRIỂN DỰ ÁN
+
+## 🖥️ **Frontend – Giao diện người dùng**
+
+| Thành phần | Mô tả |
+| --- | --- |
+| **React.js** | Hiển thị UI (Tin tức, tín hiệu, giải thích, biểu đồ...) |
+| **Tailwind CSS** | Tạo giao diện đẹp, responsive, dễ chỉnh sửa |
+| **React Router** | Routing frontend |
+| **TradingView Widget** | Nhúng biểu đồ XAUUSD |
+| **Chart.js / ApexCharts** | Hiển thị chỉ báo kỹ thuật trực quan (tuỳ chọn) |
+
+> ✅ Ưu điểm: Giao diện đơn giản, load nhanh, hỗ trợ dữ liệu real-time và cập nhật định kỳ.
+> 
+
+---
+
+## ⚙️ **Backend – Xử lý dữ liệu và API**
+
+| Thành phần | Mô tả |
+| --- | --- |
+| **Express.js** | Xây dựng các route API: `/api/signal`, `/api/news`, `/api/econ`... |
+| **Node.js** | Xử lý logic tính chỉ báo, phân tích sentiment |
+| **node-cron** | Cron job định kỳ (30p, 1h, 2h...) |
+| **HuggingFace API** | Phân tích sentiment từ nội dung tin tức |
+| **Axios / node-fetch** | Gọi đến API giá, tin tức, dữ liệu vĩ mô |
+
+> ✅ Ưu điểm: Không cần backend riêng, dễ deploy, dễ scale về sau.
+> 
+
+---
+
+## 🧠 **Xử lý phân tích**
+
+| Phân tích | Phương pháp | Công cụ |
+| --- | --- | --- |
+| **Tin tức** | Dùng AI NLP → phân tích sentiment | HuggingFace API |
+| **Chỉ báo kỹ thuật** | Tính toán trực tiếp trong Node.js | MACD, RSI, EMA, Volume |
+| **Dữ liệu vĩ mô** | Rule-based logic (actual vs forecast) | DXY, CPI, Fed Rate... |
+
+---
+
+## 🗃️ **Cơ sở dữ liệu – Lưu trữ thông tin**
+
+| Công nghệ | Vai trò | Miễn phí |
+| --- | --- | --- |
+| **MongoDB Atlas (Free Tier)** | Lưu: tin tức, tín hiệu giao dịch, dữ liệu kỹ thuật & kinh tế | ✅ M0 (512MB) đủ dùng nhiều tháng |
+| **Mongoose** | ORM cho MongoDB | Dễ thao tác dữ liệu trong Node.js/Next.js |
+
+---
+
+## 🌐 **Nguồn dữ liệu & API tích hợp**
+
+| Dữ liệu | Nguồn | Ghi chú |
+| --- | --- | --- |
+| **Giá vàng 4H** | Finnhub / Alpha Vantage | Free, 60 API calls/min |
+| **Tin tức tài chính** | NewsAPI / GNews | Free tier đủ dùng cho cá nhân |
+| **Chỉ số kinh tế vĩ mô** | FRED API / Finnhub | Có sẵn CPI, Fed Rate, DXY… |
+
+---
+
+
+
+
+hyana/
+├── client/                  # Frontend (React + Vite + Tailwind)
+│   ├── public/
+│   ├── src/
+│   │   ├── api/             # axios config, gọi API
+│   │   ├── components/      # UI components (Card, SignalItem, NewsItem...)
+│   │   ├── pages/           # Trang chính (Home, Dashboard...)
+│   │   ├── routes/          # React Router (tuỳ chọn)
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   ├── index.html
+│   ├── tailwind.config.js
+│   ├── postcss.config.js
+│   └── vite.config.js
+│
+├── server/                 # Backend (Express + MongoDB + Cron + AI)
+│   ├── controllers/        # Logic xử lý API
+│   │   ├── signalController.js
+│   │   ├── newsController.js
+│   │   └── econController.js
+│   ├── routes/             # Các route API
+│   │   ├── signalRoute.js
+│   │   ├── newsRoute.js
+│   │   └── econRoute.js
+│   ├── models/             # Schema MongoDB (Mongoose)
+│   │   ├── Signal.js
+│   │   ├── News.js
+│   │   ├── TechnicalSnapshot.js
+│   │   └── EconomicFactor.js
+│   ├── services/           # Xử lý AI, kỹ thuật, vĩ mô
+│   │   ├── sentimentService.js
+│   │   ├── technicalService.js
+│   │   └── macroService.js
+│   ├── cron/               # Cronjob định kỳ
+│   │   ├── updateTechnical.js
+│   │   ├── updateNews.js
+│   │   └── updateMacro.js
+│   ├── utils/              # Hàm tiện ích (tính MACD, gọi API...)
+│   │   ├── indicators.js
+│   │   └── apiClients.js
+│   ├── .env                # Biến môi trường
+│   ├── app.js              # Khởi tạo Express app
+│   └── server.js           # Chạy server
+│
+├── README.md
+└── .gitignore

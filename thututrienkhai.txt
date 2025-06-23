@@ -1,0 +1,200 @@
+Collecting workspace informationDựa vào mô tả dự án "Trợ lý giao dịch vàng 4H tích hợp AI" trong hyana.txt, đây là thứ tự chức năng tôi đề xuất:
+
+## 🎯 THỨ TỰ PHÁT TRIỂN CHỨC NĂNG
+
+Nhìn vào cấu trúc dự án hiện tại của bạn trong thư mục `HYANA`, bạn đã có phần **xác thực người dùng (auth)** khá hoàn chỉnh. Tiếp theo, để phát triển **trợ lý giao dịch vàng 4H**, mình đề xuất **thứ tự triển khai tiếp theo như sau**, bám sát folder structure hiện tại:
+
+---
+
+## ✅ THỨ TỰ TRIỂN KHAI SAU LOGIN
+
+### ✅ Giai đoạn 1: **Phân tích kỹ thuật – cron + lưu DB**
+
+**(1) Tạo dịch vụ tính chỉ báo kỹ thuật**
+
+* File: `server/services/technicalService.js`
+* Dữ liệu đầu vào: giá OHLC từ API (Finnhub...)
+* Tính toán: RSI, MACD, EMA, Volume Ratio
+* Gợi ý: sử dụng thêm file phụ trong `utils/indicators.js`
+
+**(2) Tạo cron job gọi định kỳ**
+
+* File: `server/cron/updateTechnical.js`
+* Job: mỗi 30 phút → gọi API → tính chỉ báo → lưu vào `TechnicalSnapshot` (model đã có)
+
+**(3) Tạo route API lấy snapshot kỹ thuật**
+
+* Tạo file: `routes/technicalRoute.js`
+* Controller: `getLatestSnapshot`, dùng `TechnicalSnapshot.findOne().sort({ timestamp: -1 })`
+
+---
+
+### ✅ Giai đoạn 2: **Phân tích sentiment tin tức bằng AI**
+
+**(4) Tạo service phân tích tin tức**
+
+* File: `services/sentimentService.js`
+* Lấy tin tức từ NewsAPI / GNews
+* Gọi HuggingFace API → phân tích sentiment (`positive`, `negative`)
+* Mapping tác động đến GOLD (`dovish_usd` → tăng, `hawkish_usd` → giảm)
+
+**(5) Tạo cron job**
+
+* File: `cron/updateNews.js`
+* Job: mỗi 2 giờ → lấy tin mới → phân tích → lưu `News` model
+
+**(6) API lấy danh sách tin**
+
+* Route: `/api/news/latest`
+* Controller: trả về 5–10 tin mới nhất có phân tích AI
+
+---
+
+### ✅ Giai đoạn 3: **Phân tích dữ liệu vĩ mô**
+
+**(7) Tạo service xử lý dữ liệu vĩ mô**
+
+* File: `services/macroService.js`
+* Gọi API (FRED, Finnhub) → lấy CPI, Fed Rate, DXY
+* Mapping logic sentiment (actual < forecast → dovish)
+
+**(8) Cronjob phân tích macro**
+
+* File: `cron/updateMacro.js`
+* Job: mỗi 12h → lưu vào `EconomicFactor`
+
+**(9) API lấy dữ liệu macro**
+
+* Route: `/api/econ/latest`
+
+---
+
+### ✅ Giai đoạn 4: **Sinh tín hiệu giao dịch tổng hợp**
+
+**(10) Tạo service sinh tín hiệu**
+
+* File: `services/signalService.js`
+* Tổng hợp dữ liệu từ:
+
+  * `TechnicalSnapshot` gần nhất
+  * `News` sentiment
+  * `EconomicFactor` gần nhất
+* Sinh object `Signal`: action, entry, SL, TP, reasoning\[]
+* Lưu vào model `Signal`
+
+**(11) Cronjob sinh tín hiệu**
+
+* File: `cron/updateSignal.js`
+* Job: mỗi 1 giờ → gọi `signalService.generateSignal()`
+
+**(12) API trả tín hiệu mới nhất**
+
+* Route: `/api/signal/latest`
+
+---
+
+### ✅ Giai đoạn 5: **Hiển thị frontend**
+
+> Phần này viết sau khi backend ổn định
+
+**Trang chủ (`/`)**:
+
+* Hiển thị:
+
+  * Tín hiệu hiện tại
+  * Lý do, confidence, vùng giá
+  * Tin tức liên quan mới nhất
+
+**Trang kỹ thuật (`/technical`)**:
+
+* Hiển thị biểu đồ giá (TradingView)
+* Kèm chỉ báo RSI, MACD, EMA
+
+**Trang tin tức (`/news`)**:
+
+* Danh sách tin sentiment AI + tác động lên GOLD
+
+**Trang kinh tế (`/macro`)**:
+
+* Các chỉ số CPI, Fed Rate, DXY mới nhất
+
+---
+
+## 🧠 Gợi ý tổng quan:
+
+```
+✔️ Auth (ĐÃ CÓ)
+  ↓
+⚙️ Cron kỹ thuật (TechnicalSnapshot)
+  ↓
+🧠 Cron news + AI sentiment (News)
+  ↓
+📊 Cron macro + mapping rule (EconomicFactor)
+  ↓
+📈 Cron sinh tín hiệu tổng hợp (Signal)
+  ↓
+🖥️ Frontend hiển thị Dashboard
+```
+
+---
+
+📌 *Nếu bạn muốn mình tạo tiếp `services/technicalService.js` hoặc `cron/updateTechnical.js` ngay, hãy nói mình biết nhé.*
+
+---
+
+## 🚀 BẮT ĐẦU VỚI CHỨC NĂNG 1: ĐĂNG NHẬP
+
+Để bắt đầu, chúng ta sẽ tạo:
+
+1. **User model** với schema authentication
+2. **MongoDB connection** sử dụng connection string từ .env
+3. **Express routes** cho login/register
+4. **JWT middleware** cho authentication
+5. **Basic frontend** login form
+
+hyana/
+├── client/                  # Frontend (React + Vite + Tailwind)
+│   ├── public/
+│   ├── src/
+│   │   ├── api/             # axios config, gọi API
+│   │   ├── components/      # UI components (Card, SignalItem, NewsItem...)
+│   │   ├── pages/           # Trang chính (Home, Dashboard...)
+│   │   ├── routes/          # React Router (tuỳ chọn)
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   ├── index.html
+│   ├── tailwind.config.js
+│   ├── postcss.config.js
+│   └── vite.config.js
+│
+├── server/                 # Backend (Express + MongoDB + Cron + AI)
+│   ├── controllers/        # Logic xử lý API
+│   │   ├── signalController.js
+│   │   ├── newsController.js
+│   │   └── econController.js
+│   ├── routes/             # Các route API
+│   │   ├── signalRoute.js
+│   │   ├── newsRoute.js
+│   │   └── econRoute.js
+│   ├── models/             # Schema MongoDB (Mongoose)
+│   │   ├── Signal.js
+│   │   ├── News.js
+│   │   ├── TechnicalSnapshot.js
+│   │   └── EconomicFactor.js
+│   ├── services/           # Xử lý AI, kỹ thuật, vĩ mô
+│   │   ├── sentimentService.js
+│   │   ├── technicalService.js
+│   │   └── macroService.js
+│   ├── cron/               # Cronjob định kỳ
+│   │   ├── updateTechnical.js
+│   │   ├── updateNews.js
+│   │   └── updateMacro.js
+│   ├── utils/              # Hàm tiện ích (tính MACD, gọi API...)
+│   │   ├── indicators.js
+│   │   └── apiClients.js
+│   ├── .env                # Biến môi trường
+│   ├── app.js              # Khởi tạo Express app
+│   └── server.js           # Chạy server
+│
+├── README.md
+└── .gitignore
