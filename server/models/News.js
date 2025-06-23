@@ -84,7 +84,7 @@ const newsSchema = new mongoose.Schema({
       'central_bank',      // Other central banks
       'market_sentiment',  // General market mood
       'currency',          // USD, DXY, forex
-      'commodities',       // Gold, precious metals
+      'commodities',       // ✅ Gold, precious metals
       'other'
     ],
     default: 'other'

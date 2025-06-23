@@ -51,15 +51,28 @@ const getNewsByCategory = async (req, res) => {
     
     console.log(`📰 API: Getting news by category: ${category}`);
     
-    const validCategories = ['fed_policy', 'economic_data', 'geopolitical', 'market_sentiment', 'inflation', 'employment', 'other'];
+    // ✅ FIXED: Include all categories that frontend uses
+    const validCategories = [
+      'fed_policy', 
+      'inflation', 
+      'employment', 
+      'economic_growth', 
+      'consumer_data', 
+      'geopolitical', 
+      'central_bank', 
+      'market_sentiment', 
+      'currency', 
+      'commodities', // ✅ Add commodities
+      'other'
+    ];
     
     if (!validCategories.includes(category)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid category'
+        message: `Invalid category: ${category}. Valid categories: ${validCategories.join(', ')}`
       });
     }
-    
+
     const news = await News.find({ 
       category: category,
       isProcessed: true 

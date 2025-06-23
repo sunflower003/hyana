@@ -607,8 +607,8 @@ class SentimentService {
       return 'currency';
     }
     
-    // Commodities (Gold specific)
-    if (/gold|precious.metals|commodities|mining/i.test(content)) {
+    // ✅ FIXED: Commodities (Gold specific)
+    if (/gold|precious.metals|commodities|mining|silver|platinum|copper/i.test(content)) {
       return 'commodities';
     }
     
