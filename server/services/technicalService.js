@@ -15,54 +15,28 @@ class TechnicalService {
     this.priceClient = createPriceClient();
   }
 
+  // ✅ SIMPLIFIED: Key methods with minimal logging
   async analyzeTechnical() {
-    console.log('\n🔍 Starting Technical Analysis (Swing Trading H4)...');
-    
-    const ohlcData = await this.priceClient.getGoldPrice('XAUUSD', '4h', 250);
+    try {
+      const ohlcData = await this.priceClient.getGoldPrice('XAUUSD', '4h', 250);
 
-    if (!ohlcData || ohlcData.length < 50) {
-      throw new Error('Insufficient price data for technical analysis');
+      if (!ohlcData || ohlcData.length < 50) {
+        throw new Error(`Insufficient data: ${ohlcData?.length || 0} candles`);
+      }
+
+      const latest = ohlcData[ohlcData.length - 1];
+      const closes = ohlcData.map(c => c.close);
+      const indicators = await this.calculateIndicators(closes, ohlcData);
+      const technicalData = await this.generateAnalysis(latest, indicators, ohlcData);
+
+      console.log(`📊 Technical: $${latest.close.toFixed(2)} | ${indicators.trend} | RSI: ${indicators.RSI.toFixed(1)}`);
+
+      return technicalData;
+
+    } catch (error) {
+      console.error('❌ Technical analysis failed:', error.message);
+      throw error;
     }
-
-    const closes = ohlcData.map(c => c.close);
-    const latest = ohlcData[ohlcData.length - 1];
-
-    console.log(`📊 Analyzing ${ohlcData.length} candles, latest: $${latest.close}`);
-
-    const indicators = await this.calculateIndicators(closes, ohlcData);
-
-    // Xác định dataSource
-    let dataSource = 'manual';
-    const twelveDataKey = process.env.TWELVEDATA_API_KEY;
-    const finnhubKey = process.env.FINNHUB_API_KEY;
-    
-    if (twelveDataKey && twelveDataKey !== 'demo' && twelveDataKey.length > 10) {
-      dataSource = 'twelvedata';
-    } else if (finnhubKey && finnhubKey !== 'demo') {
-      dataSource = 'finnhub';
-    }
-
-    const snapshot = {
-      timestamp: latest.timestamp,
-      price: {
-        open: latest.open,
-        high: latest.high,
-        low: latest.low,
-        close: latest.close
-      },
-      indicators,
-      supportResistance: calculateSupportResistance(ohlcData),
-      volatility: calculateVolatility(ohlcData),
-      strength: calculateMarketStrength(
-        indicators.RSI,
-        indicators.MACD,
-        indicators.trend
-      ),
-      dataSource: dataSource
-    };
-
-    console.log(`✅ Analysis completed | Trend: ${indicators.trend} | RSI: ${indicators.RSI} | Strength: ${snapshot.strength}`);
-    return snapshot;
   }
 
   // ✅ UPDATED: calculateIndicators without volume
@@ -262,16 +236,61 @@ class TechnicalService {
     }
   }
 
+  // ✅ ADD: Missing generateAnalysis method
+  async generateAnalysis(latest, indicators, ohlcData) {
+    try {
+      // Calculate volatility and market strength
+      const closes = ohlcData.map(c => c.close);
+      const volatility = calculateVolatility(closes, 20);
+      const strength = calculateMarketStrength(indicators.RSI, indicators.MACD, indicators.trend);
+      
+      // Calculate support/resistance levels
+      const supportResistance = calculateSupportResistance(ohlcData.slice(-50));
+      
+      // Create technical snapshot data
+      const technicalData = {
+        timestamp: latest.timestamp,
+        price: {
+          open: latest.open,
+          high: latest.high,
+          low: latest.low,
+          close: latest.close
+        },
+        indicators: {
+          RSI: indicators.RSI,
+          MACD: indicators.MACD,
+          EMA_20: indicators.EMA_20,
+          EMA_50: indicators.EMA_50,
+          EMA_200: indicators.EMA_200,
+          trend: indicators.trend
+        },
+        supportResistance,
+        volatility,
+        strength,
+        dataSource: 'twelvedata'
+      };
+
+      console.log(`📊 Latest XAU/USD price: $${latest.close}`);
+      console.log(`📊 Analyzing ${ohlcData.length} candles, latest: $${latest.close}`);
+      console.log(`📈 EMA 200: $${indicators.EMA_200 ? indicators.EMA_200.toFixed(2) : 'N/A'}`);
+      console.log(`✅ Analysis completed | Trend: ${indicators.trend} | RSI: ${indicators.RSI.toFixed(2)} | Strength: ${strength}`);
+
+      return technicalData;
+      
+    } catch (error) {
+      console.error('❌ Generate Analysis Error:', error.message);
+      throw error;
+    }
+  }
+
+  // ✅ UPDATE: Fix updateTechnicalAnalysis method
   async updateTechnicalAnalysis() {
     try {
-      console.log('\n🚀 Running Technical Analysis Update (Swing Trading Strategy)...');
-
       const technicalData = await this.analyzeTechnical();
       const snapshot = await this.saveSnapshot(technicalData);
-      const analysis = this.generateTrendAnalysis(technicalData);
+      const analysis = this.generateTrendAnalysis(snapshot);
 
-      console.log('✅ Technical Analysis Update completed successfully');
-      console.log(`📊 Recommendation: ${analysis.recommendation} (${analysis.confidence}%)`);
+      console.log(`✅ Technical updated: ${analysis.recommendation} (${analysis.confidence}%)`);
 
       return {
         snapshot,
@@ -281,7 +300,7 @@ class TechnicalService {
       };
 
     } catch (error) {
-      console.error('❌ Technical Analysis Update Failed:', error.message);
+      console.error('❌ Technical update failed:', error.message);
       return {
         success: false,
         error: error.message,

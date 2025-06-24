@@ -136,3 +136,68 @@ button:focus-visible {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* Add to client/src/index.css */
+
+/* ✅ Enhanced scrollbar and layout for detailed analysis */
+.news-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #4f46e5 #374151;
+}
+
+.news-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.news-scrollbar::-webkit-scrollbar-track {
+  background: #374151;
+  border-radius: 3px;
+}
+
+.news-scrollbar::-webkit-scrollbar-thumb {
+  background: #4f46e5;
+  border-radius: 3px;
+}
+
+.news-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #6366f1;
+}
+
+/* ✅ Smooth transitions for analysis sections */
+.analysis-section {
+  transition: all 0.2s ease-in-out;
+}
+
+.analysis-section:hover {
+  transform: translateX(2px);
+}
+
+/* ✅ Better text hierarchy */
+.analysis-header {
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.1) 0%, transparent 100%);
+  border-left: 3px solid #fbbf24;
+  padding-left: 12px;
+}
+
+.analysis-bullet {
+  position: relative;
+}
+
+.analysis-bullet::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 8px;
+  width: 4px;
+  height: 4px;
+  background: #60a5fa;
+  border-radius: 50%;
+}
+
+/* ✅ Line clamp utility */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

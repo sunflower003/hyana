@@ -15,27 +15,35 @@ const TechnicalDashboard = () => {
     fetchTechnicalStats();
   }, []);
 
+  // ✅ ADD: Debug logging in fetchTechnicalData
   const fetchTechnicalData = async () => {
     try {
-      setTechnicalData(prev => ({ ...prev, loading: true }));
+      setTechnicalData(prev => ({ ...prev, loading: true, error: null }));
       
+      console.log('🔍 DEBUG: Fetching technical data...');
       // ✅ Use authenticated api instance
       const response = await api.get('/api/technical/latest');
+      
+      // ✅ DEBUG: Log full response
+      console.log('🔍 DEBUG: Technical API Response:', response.data);
+      console.log('🔍 DEBUG: Price data:', response.data.data?.snapshot?.price);
+      console.log('🔍 DEBUG: Latest close price:', response.data.data?.snapshot?.price?.close);
       
       if (response.data.success) {
         setTechnicalData(prev => ({
           ...prev,
           latest: response.data.data,
-          loading: false,
-          error: null
+          loading: false
         }));
+      } else {
+        throw new Error(response.data.message);
       }
     } catch (error) {
-      console.error('Error fetching technical data:', error);
-      setTechnicalData(prev => ({
-        ...prev,
-        loading: false,
-        error: 'Không thể tải dữ liệu kỹ thuật'
+      console.error('❌ DEBUG: Technical fetch error:', error);
+      setTechnicalData(prev => ({ 
+        ...prev, 
+        loading: false, 
+        error: error.response?.data?.message || error.message 
       }));
     }
   };

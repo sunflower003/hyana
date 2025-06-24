@@ -19,46 +19,27 @@ class TwelveDataClient {
     });
   }
 
-  // Lấy dữ liệu giá vàng 4H - Sử dụng XAU/USD trực tiếp
+  // ✅ FORCE REAL API DATA - No fallback to mock
   async getGoldPrice(symbol = 'XAUUSD', resolution = '4h', count = 250) {
     try {
-      // ✅ Sử dụng XAU/USD trực tiếp từ Twelve Data
-      let twelveDataSymbol = 'XAU/USD';
-      
-      // ✅ Mapping interval format từ Finnhub sang Twelve Data
-      let twelveDataInterval = resolution;
-      if (resolution === '240') {
-        twelveDataInterval = '4h'; // Convert from Finnhub to Twelve Data format
-      }
-      
-      console.log(`🔄 Fetching XAU/USD data from Twelve Data (${twelveDataSymbol}, ${twelveDataInterval})...`);
-      
       const params = {
-        symbol: twelveDataSymbol,
-        interval: twelveDataInterval, // ✅ Use correct format
+        symbol: 'XAU/USD',
+        interval: resolution === '240' ? '4h' : resolution,
         outputsize: count,
-        format: 'json'
+        format: 'json',
+        apikey: this.apiKey
       };
-      
-      // Thêm API key nếu có
-      if (this.apiKey) {
-        params.apikey = this.apiKey;
-      }
       
       const response = await this.client.get('/time_series', { params });
 
-      // Kiểm tra response
       if (response.data.code) {
-        console.log(`⚠️ Twelve Data API error: ${response.data.message}, using mock data...`);
-        return generateMockData(count);
+        throw new Error(`API Error: ${response.data.message}`);
       }
 
       if (!response.data.values || response.data.values.length === 0) {
-        console.log('⚠️ No data from Twelve Data, using mock data...');
-        return generateMockData(count);
+        throw new Error('No price data returned');
       }
 
-      // Convert Twelve Data format to OHLC
       const ohlcData = response.data.values.map(item => ({
         timestamp: new Date(item.datetime),
         open: parseFloat(item.open),
@@ -68,34 +49,26 @@ class TwelveDataClient {
         volume: parseFloat(item.volume) || 0
       }));
 
-      // Twelve Data trả về data mới nhất trước -> đảo ngược
+      // ✅ SORT: Twelve Data returns newest first
       ohlcData.reverse();
+      console.log(`📈 Fetched ${ohlcData.length} candles, latest: $${ohlcData[ohlcData.length - 1].close.toFixed(2)}`);
 
-      console.log(`✅ Fetched ${ohlcData.length} candles from Twelve Data`);
-      console.log(`📊 Latest XAU/USD price: $${ohlcData[ohlcData.length - 1].close}`);
-      
       return ohlcData;
 
     } catch (error) {
-      console.error('❌ Twelve Data API Error:', error.message);
-      
-      // Rate limit handling
-      if (error.response?.status === 429) {
-        console.log('⚠️ Rate limited, using mock data...');
-      } else if (error.response?.status === 401) {
-        console.log('⚠️ Invalid API key, using mock data...');
-      }
-      
-      console.log('🔄 Fallback to mock data...');
-      return generateMockData(count);
+      console.error('❌ Price data failed:', error.message);
+      throw error;
     }
   }
 
-  // Lấy giá real-time XAU/USD
+  // ✅ REAL CURRENT PRICE - No fallback
   async getCurrentPrice(symbol = 'XAU/USD') {
     try {
-      const params = { symbol: 'XAU/USD', format: 'json' };
-      if (this.apiKey) params.apikey = this.apiKey;
+      const params = { 
+        symbol: 'XAU/USD', 
+        format: 'json',
+        apikey: this.apiKey
+      };
       
       const response = await this.client.get('/price', { params });
 
@@ -107,32 +80,36 @@ class TwelveDataClient {
           timestamp: new Date()
         };
       } else {
-        throw new Error('No price data');
+        throw new Error('No current price data');
       }
 
     } catch (error) {
-      console.error('❌ Twelve Data Current Price Error:', error.message);
-      // Return mock current price với giá realistic
-      return {
-        price: 2635 + Math.random() * 20 - 10, // 2625-2645
-        change: (Math.random() - 0.5) * 10,
-        changePercent: (Math.random() - 0.5) * 0.5,
-        timestamp: new Date()
-      };
+      console.error('❌ Current price failed:', error.message);
+      throw error;
     }
   }
 
-  // Lấy quote XAU/USD với change information
+  // ✅ REAL QUOTE DATA - No fallback
   async getQuote(symbol = 'XAU/USD') {
     try {
-      const params = { symbol: 'XAU/USD', format: 'json' };
-      if (this.apiKey) params.apikey = this.apiKey;
+      if (!this.apiKey || this.apiKey === 'demo') {
+        throw new Error('API key required for real quote');
+      }
+      
+      const params = { 
+        symbol: 'XAU/USD', 
+        format: 'json',
+        apikey: this.apiKey
+      };
       
       const response = await this.client.get('/quote', { params });
 
       if (response.data.close) {
+        const realPrice = parseFloat(response.data.close);
+        console.log(`💰 REAL XAU/USD quote: $${realPrice.toFixed(2)}`);
+        
         return {
-          price: parseFloat(response.data.close),
+          price: realPrice,
           change: parseFloat(response.data.change) || 0,
           changePercent: parseFloat(response.data.percent_change) || 0,
           open: parseFloat(response.data.open),
@@ -142,17 +119,12 @@ class TwelveDataClient {
           timestamp: new Date()
         };
       } else {
-        throw new Error('No quote data');
+        throw new Error('No quote data returned');
       }
 
     } catch (error) {
-      console.error('❌ Twelve Data Quote Error:', error.message);
-      return {
-        price: 2635 + Math.random() * 20 - 10,
-        change: (Math.random() - 0.5) * 10,
-        changePercent: (Math.random() - 0.5) * 0.5,
-        timestamp: new Date()
-      };
+      console.error('❌ CRITICAL: Failed to get real quote:', error.message);
+      throw new Error(`Real quote unavailable: ${error.message}`);
     }
   }
 }
@@ -231,69 +203,18 @@ class FinnhubClient {
   }
 }
 
-// ✅ Cập nhật generateMockData với giá XAUUSD thực tế
-const generateMockData = (count = 250) => {
-  console.log(`🔄 Generating realistic mock XAUUSD data for testing (${count} candles)...`);
-  
-  const ohlcData = [];
-  let basePrice = 2635; // ✅ Giá vàng thực tế hiện tại (December 2024)
-  const now = new Date();
-  
-  const trendDirection = Math.random() > 0.5 ? 1 : -1;
-  console.log(`📈 Mock trend: ${trendDirection > 0 ? 'UPTREND' : 'DOWNTREND'}`);
-  
-  for (let i = count - 1; i >= 0; i--) {
-    const timestamp = new Date(now.getTime() - (i * 4 * 60 * 60 * 1000)); // 4 hours ago
-    
-    // Tạo biến động thực tế hơn cho vàng
-    const trendStrength = 0.0002; // Giảm xuống để realistic hơn
-    const noise = (Math.random() - 0.5) * 0.006; // Noise nhỏ hơn
-    const trendMove = trendDirection * trendStrength;
-    
-    basePrice = basePrice * (1 + trendMove + noise);
-    
-    // Đảm bảo giá không đi quá xa khỏi thực tế (2600-2670)
-    basePrice = Math.max(2600, Math.min(2670, basePrice));
-    
-    const open = basePrice;
-    const volatility = 0.002; // Giảm volatility cho realistic hơn
-    const close = open * (1 + (Math.random() - 0.5) * volatility);
-    const high = Math.max(open, close) * (1 + Math.random() * 0.0008);
-    const low = Math.min(open, close) * (1 - Math.random() * 0.0008);
-    
-    const baseVolume = 500;
-    const trendVolume = Math.abs(close - open) > (open * 0.0015) ? 1.3 : 1;
-    const volume = Math.floor(baseVolume * trendVolume * (0.8 + Math.random() * 0.4));
-    
-    ohlcData.push({
-      timestamp,
-      open: Math.round(open * 100) / 100,
-      high: Math.round(high * 100) / 100,
-      low: Math.round(low * 100) / 100,
-      close: Math.round(close * 100) / 100,
-      volume
-    });
-  }
-  
-  const firstPrice = ohlcData[0].close;
-  const lastPrice = ohlcData[ohlcData.length - 1].close;
-  const change = ((lastPrice - firstPrice) / firstPrice * 100).toFixed(2);
-  
-  console.log(`✅ Generated ${ohlcData.length} mock candles`);
-  console.log(`📊 Price range: $${firstPrice} → $${lastPrice} (${change}%)`);
-  
-  return ohlcData;
-};
+// ✅ REMOVE MOCK DATA FUNCTION COMPLETELY
+// const generateMockData = ... // DELETED
 
-// Factory function với priority: Twelve Data > Finnhub > Mock
+// ✅ UPDATE: Factory function - Only real data
 const createPriceClient = () => {
-  console.log('📊 Using Twelve Data API for XAU/USD direct data');
+  console.log('📊 Using REAL Twelve Data API for XAU/USD (no mock fallback)');
   return new TwelveDataClient();
 };
 
 module.exports = {
   TwelveDataClient,
   FinnhubClient,
-  createPriceClient,
-  generateMockData
+  createPriceClient
+  // ✅ REMOVED: generateMockData export
 };

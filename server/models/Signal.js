@@ -3,112 +3,164 @@ const mongoose = require('mongoose');
 const signalSchema = new mongoose.Schema({
   timeframe: {
     type: String,
-    default: '4H',
+    required: [true, 'Timeframe is required'],
     enum: ['1H', '4H', '1D'],
-    required: true
+    default: '4H'
   },
   
   action: {
     type: String,
+    required: [true, 'Action is required'],
     enum: ['BUY', 'SELL', 'HOLD'],
-    required: [true, 'Action is required']
+    index: true
   },
   
   confidence: {
     type: Number,
+    required: [true, 'Confidence is required'],
     min: [0, 'Confidence must be between 0-100'],
-    max: [100, 'Confidence must be between 0-100'],
-    required: [true, 'Confidence level is required']
+    max: [100, 'Confidence must be between 0-100']
+  },
+  
+  // Price levels
+  priceAtSignal: {
+    type: Number,
+    required: [true, 'Price at signal is required']
   },
   
   entryZone: {
     type: [Number],
     validate: {
       validator: function(v) {
-        return v && v.length === 2 && v[0] <= v[1];
+        return !v || v.length === 0 || v.length === 2;
       },
-      message: 'Entry zone must have exactly 2 values [min, max]'
-    },
-    required: [true, 'Entry zone is required']
+      message: 'Entry zone must be empty or have exactly 2 values [low, high]'
+    }
   },
   
   stopLoss: {
     type: Number,
-    required: [true, 'Stop loss is required']
+    default: null
   },
   
   takeProfit: {
     type: Number,
-    required: [true, 'Take profit is required']
+    default: null
   },
   
+  riskRewardRatio: {
+    type: Number,
+    default: null
+  },
+  
+  // Analysis scores
+  technicalScore: {
+    type: Number,
+    required: [true, 'Technical score is required'],
+    min: [0, 'Technical score must be between 0-100'],
+    max: [100, 'Technical score must be between 0-100']
+  },
+  
+  newsScore: {
+    type: Number,
+    required: [true, 'News score is required'],
+    min: [0, 'News score must be between 0-100'],
+    max: [100, 'News score must be between 0-100']
+  },
+  
+  macroScore: {
+    type: Number,
+    required: [true, 'Macro score is required'],
+    min: [0, 'Macro score must be between 0-100'],
+    max: [100, 'Macro score must be between 0-100']
+  },
+  
+  overallScore: {
+    type: Number,
+    required: [true, 'Overall score is required'],
+    min: [0, 'Overall score must be between 0-100'],
+    max: [100, 'Overall score must be between 0-100']
+  },
+  
+  // Reasoning and summary
   reasoning: {
     type: [String],
-    required: [true, 'Reasoning is required'],
-    validate: {
-      validator: function(v) {
-        return v && v.length > 0;
-      },
-      message: 'At least one reasoning must be provided'
-    }
+    default: []
   },
   
   summary: {
     type: String,
     required: [true, 'Summary is required'],
-    maxlength: [500, 'Summary must be less than 500 characters']
+    maxlength: [5000, 'Summary must be less than 500 characters']
   },
   
-  // Thông tin bổ sung cho phân tích
-  technicalScore: {
+  signals: {
+    type: [String],
+    default: []
+  },
+  
+  // Status tracking
+  status: {
+    type: String,
+    enum: ['active', 'expired', 'triggered', 'cancelled'],
+    default: 'active'
+  },
+  
+  // Performance tracking (optional, for future use)
+  result: {
+    type: String,
+    enum: ['win', 'loss', 'breakeven', 'pending'],
+    default: 'pending'
+  },
+  
+  actualEntryPrice: {
     type: Number,
-    min: 0,
-    max: 100,
-    default: 0
+    default: null
   },
   
-  newsScore: {
+  exitPrice: {
     type: Number,
-    min: 0,
-    max: 100,
-    default: 0
+    default: null
   },
   
-  macroScore: {
+  pnl: {
     type: Number,
-    min: 0,
-    max: 100,
-    default: 0
-  },
-  
-  // Tracking
-  isActive: {
-    type: Boolean,
-    default: true
-  },
-  
-  // Meta data
-  priceAtSignal: {
-    type: Number,
-    required: true
+    default: null
   }
   
 }, {
-  timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  timestamps: true
 });
 
-// Virtual fields
-signalSchema.virtual('riskRewardRatio').get(function() {
-  const risk = Math.abs(this.priceAtSignal - this.stopLoss);
-  const reward = Math.abs(this.takeProfit - this.priceAtSignal);
-  return risk > 0 ? (reward / risk).toFixed(2) : 0;
-});
-
-// Index cho performance
+// Indexes for better query performance
 signalSchema.index({ createdAt: -1 });
-signalSchema.index({ action: 1, isActive: 1 });
-signalSchema.index({ timeframe: 1, createdAt: -1 });
+signalSchema.index({ action: 1, createdAt: -1 });
+signalSchema.index({ confidence: -1, createdAt: -1 });
+signalSchema.index({ status: 1, createdAt: -1 });
+
+// Virtual for age in hours
+signalSchema.virtual('ageInHours').get(function() {
+  return Math.floor((Date.now() - this.createdAt.getTime()) / (1000 * 60 * 60));
+});
+
+// Static method to get latest signal
+signalSchema.statics.getLatest = function() {
+  return this.findOne()
+    .sort({ createdAt: -1 })
+    .limit(1);
+};
+
+// Static method to get signals by action
+signalSchema.statics.getByAction = function(action, limit = 10) {
+  return this.find({ action })
+    .sort({ createdAt: -1 })
+    .limit(limit);
+};
+
+// Instance method to check if signal is fresh (within 6 hours)
+signalSchema.methods.isFresh = function() {
+  const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
+  return this.createdAt >= sixHoursAgo;
+};
 
 module.exports = mongoose.model('Signal', signalSchema);

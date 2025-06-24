@@ -152,88 +152,139 @@ const determineTrend = (ema20, ema50, ema200, price) => {
 };
 
 // Support / Resistance đơn giản
-const calculateSupportResistance = (ohlc, period = 20) => {
-  if (ohlc.length < period) return { support: [], resistance: [] };
+const calculateSupportResistance = (ohlcData, period = 20) => {
+  if (!ohlcData || ohlcData.length < period) {
+    return {
+      support: [],
+      resistance: []
+    };
+  }
 
-  const recent = ohlc.slice(-period);
-  const highs = recent.map(c => c.high);
-  const lows = recent.map(c => c.low);
-
-  const maxHigh = Math.max(...highs);
-  const minLow = Math.min(...lows);
-
-  return {
-    support: [Math.round(minLow * 100) / 100, Math.round(minLow * 0.98 * 100) / 100],
-    resistance: [Math.round(maxHigh * 100) / 100, Math.round(maxHigh * 1.02 * 100) / 100]
-  };
+  try {
+    const highs = ohlcData.map(candle => candle.high);
+    const lows = ohlcData.map(candle => candle.low);
+    
+    // Simple pivot point calculation
+    const recentHigh = Math.max(...highs.slice(-period));
+    const recentLow = Math.min(...lows.slice(-period));
+    const currentPrice = ohlcData[ohlcData.length - 1].close;
+    
+    // Calculate basic support and resistance levels
+    const pivot = (recentHigh + recentLow + currentPrice) / 3;
+    
+    const resistance1 = (2 * pivot) - recentLow;
+    const support1 = (2 * pivot) - recentHigh;
+    
+    const resistance2 = pivot + (recentHigh - recentLow);
+    const support2 = pivot - (recentHigh - recentLow);
+    
+    return {
+      support: [
+        Math.round(support2 * 100) / 100,
+        Math.round(support1 * 100) / 100
+      ].sort((a, b) => b - a), // Descending order
+      resistance: [
+        Math.round(resistance1 * 100) / 100,
+        Math.round(resistance2 * 100) / 100
+      ].sort((a, b) => a - b) // Ascending order
+    };
+    
+  } catch (error) {
+    console.error('❌ Support/Resistance calculation error:', error.message);
+    return {
+      support: [],
+      resistance: []
+    };
+  }
 };
 
 // Độ biến động (volatility)
-const calculateVolatility = (ohlc, period = 14) => {
-  if (ohlc.length < period) return 0;
-  let trSum = 0;
-
-  for (let i = 1; i < period; i++) {
-    const curr = ohlc[ohlc.length - i];
-    const prev = ohlc[ohlc.length - i - 1];
-    const tr = Math.max(
-      curr.high - curr.low,
-      Math.abs(curr.high - prev.close),
-      Math.abs(curr.low - prev.close)
-    );
-    trSum += tr;
+const calculateVolatility = (prices, period = 20) => {
+  if (!prices || prices.length < period) {
+    return 0;
   }
 
-  return Math.round((trSum / (period - 1)) * 100) / 100;
+  try {
+    const recentPrices = prices.slice(-period);
+    
+    // Calculate returns
+    const returns = [];
+    for (let i = 1; i < recentPrices.length; i++) {
+      const dailyReturn = (recentPrices[i] - recentPrices[i-1]) / recentPrices[i-1];
+      returns.push(dailyReturn);
+    }
+    
+    // Calculate average return
+    const avgReturn = returns.reduce((sum, ret) => sum + ret, 0) / returns.length;
+    
+    // Calculate variance
+    const variance = returns.reduce((sum, ret) => {
+      return sum + Math.pow(ret - avgReturn, 2);
+    }, 0) / returns.length;
+    
+    // Calculate standard deviation (volatility)
+    const volatility = Math.sqrt(variance) * 100; // Convert to percentage
+    
+    return Math.round(volatility * 100) / 100;
+    
+  } catch (error) {
+    console.error('❌ Volatility calculation error:', error.message);
+    return 0;
+  }
 };
 
 // Đánh giá lực thị trường
 const calculateMarketStrength = (rsi, macd, trend) => {
-  let strength = 50; // Base strength
-
-  // RSI analysis
-  if (rsi > 70) {
-    strength += 5; // Quá mua nhưng vẫn mạnh
-  } else if (rsi > 60) {
-    strength += 15; // Vùng mạnh
-  } else if (rsi > 50) {
-    strength += 10; // Bullish momentum
-  } else if (rsi < 30) {
-    strength -= 15; // Quá bán
-  } else if (rsi < 40) {
-    strength -= 10; // Bearish momentum
-  } else {
-    strength -= 5; // Trung tính yếu
-  }
-
-  // MACD trend analysis
-  if (macd.trend === 'bullish_cross') {
-    strength += 20; // Tín hiệu mạnh nhất
-  } else if (macd.trend === 'bearish_cross') {
-    strength -= 20; // Tín hiệu yếu nhất
-  } else if (macd.trend === 'bullish') {
-    strength += 10; // Momentum tăng
-  } else if (macd.trend === 'bearish') {
-    strength -= 10; // Momentum giảm
-  }
-
-  // Overall trend analysis
-  if (trend === 'uptrend') {
-    strength += 15; // Xu hướng tăng mạnh
-  } else if (trend === 'downtrend') {
-    strength -= 15; // Xu hướng giảm mạnh
-  }
-
-  // MACD histogram strength
-  if (Math.abs(macd.histogram) > 0.5) {
-    if (macd.histogram > 0) {
-      strength += 5; // Histogram dương mạnh
+  let strength = 50; // Base neutral strength
+  
+  try {
+    // RSI contribution (30% weight)
+    if (rsi > 70) {
+      strength += 15; // Very strong
+    } else if (rsi > 60) {
+      strength += 10; // Strong
+    } else if (rsi > 40) {
+      strength += 0; // Neutral
+    } else if (rsi > 30) {
+      strength -= 10; // Weak
     } else {
-      strength -= 5; // Histogram âm mạnh
+      strength -= 15; // Very weak
     }
-  }
 
-  return Math.max(0, Math.min(100, Math.round(strength)));
+    // MACD contribution (40% weight)
+    if (macd.trend === 'bullish_cross') {
+      strength += 20; // Strongest signal
+    } else if (macd.trend === 'bearish_cross') {
+      strength -= 20; // Weakest signal
+    } else if (macd.trend === 'bullish') {
+      strength += 10; // Positive momentum
+    } else if (macd.trend === 'bearish') {
+      strength -= 10; // Negative momentum
+    }
+
+    // Trend contribution (30% weight)
+    if (trend === 'uptrend') {
+      strength += 15; // Strong uptrend
+    } else if (trend === 'downtrend') {
+      strength -= 15; // Strong downtrend
+    }
+
+    // MACD histogram strength
+    if (Math.abs(macd.histogram) > 0.5) {
+      if (macd.histogram > 0) {
+        strength += 5; // Strong positive histogram
+      } else {
+        strength -= 5; // Strong negative histogram
+      }
+    }
+
+    // Ensure strength is between 0-100
+    return Math.max(0, Math.min(100, Math.round(strength)));
+    
+  } catch (error) {
+    console.error('❌ Market strength calculation error:', error.message);
+    return 50; // Return neutral on error
+  }
 };
 
 module.exports = {
@@ -241,7 +292,7 @@ module.exports = {
   calculateEMA,
   calculateMACD,
   determineTrend,
-  calculateSupportResistance,
-  calculateVolatility,
+  calculateSupportResistance, // ✅ ADDED
+  calculateVolatility,        // ✅ ADDED
   calculateMarketStrength
 };

@@ -3,13 +3,9 @@ const cors = require('cors');
 const connectDB = require('./utils/database');
 const authRoutes = require('./routes/authRoute');
 const technicalRoutes = require('./routes/technicalRoute');
-const newsRoutes = require('./routes/newsRoute'); // ✅ Add news routes
-const econRoutes = require('./routes/econRoute'); // ✅ Add economic routes
-
-// ✅ Fix: Import correct function names from cron jobs
-const { startTechnicalCron } = require('./cron/updateTechnical'); // ✅ Fixed function name
-const { startNewsUpdateCron } = require('./cron/updateNews'); // ✅ Add news cron
-const { startMacroUpdateCron } = require('./cron/updateMacro'); // ✅ Add macro cron
+const newsRoutes = require('./routes/newsRoute');
+const econRoutes = require('./routes/econRoute');
+const signalRoutes = require('./routes/signalRoute');
 
 const app = express();
 
@@ -17,8 +13,8 @@ const app = express();
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? [
-        'https://hyana.vercel.app', // ✅ Your actual Vercel frontend URL
-        'https://*.vercel.app' // ✅ Allow all Vercel preview deployments
+        'https://hyana.vercel.app',
+        'https://*.vercel.app'
       ]
     : ['http://localhost:3000', 'http://localhost:5173'],
   credentials: true,
@@ -29,9 +25,11 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Request logging middleware
+// ✅ SIMPLIFIED: Only log POST requests and errors
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  if (req.method === 'POST' || process.env.NODE_ENV === 'development') {
+    console.log(`${req.method} ${req.path}`);
+  }
   next();
 });
 
@@ -41,8 +39,9 @@ connectDB();
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/technical', technicalRoutes);
-app.use('/api/news', newsRoutes); // ✅ Add news routes
-app.use('/api/econ', econRoutes); // ✅ Add economic routes
+app.use('/api/news', newsRoutes);
+app.use('/api/econ', econRoutes);
+app.use('/api/signal', signalRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
@@ -50,32 +49,7 @@ app.get('/api/health', (req, res) => {
     success: true,
     message: 'HYANA Gold Analysis Server is running',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    features: {
-      auth: 'active',
-      technical: 'active',
-      news: 'active',
-      economic: 'active' // ✅ Updated
-    }
-  });
-});
-
-// API Info route
-app.get('/api/info', (req, res) => {
-  res.status(200).json({
-    success: true,
-    data: {
-      name: 'HYANA Gold Analysis API',
-      version: '1.0.0',
-      description: 'AI-powered gold trading analysis platform',
-      endpoints: {
-        auth: '/api/auth/*',
-        technical: '/api/technical/*',
-        news: '/api/news/*', // ✅ Add news endpoints
-        health: '/api/health',
-        info: '/api/info'
-      }
-    }
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 
@@ -83,43 +57,22 @@ app.get('/api/info', (req, res) => {
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
-    message: `Route ${req.originalUrl} not found`,
-    availableRoutes: [
-      'GET /api/health',
-      'GET /api/info', 
-      'POST /api/auth/login',
-      'POST /api/auth/register',
-      'GET /api/auth/me',
-      'GET /api/technical/latest',
-      'GET /api/technical/recent',
-      'GET /api/technical/stats',
-      'POST /api/technical/update',
-      'GET /api/news/latest',
-      'GET /api/news/sentiment',
-      'POST /api/news/update',
-      'GET /api/econ/latest', // ✅ Add economic routes
-      'GET /api/econ/summary',
-      'GET /api/econ/dxy',
-      'POST /api/econ/update'
-    ]
+    message: `Route ${req.originalUrl} not found`
   });
 });
 
 // Global error handler
 app.use((error, req, res, next) => {
-  console.error('Global Error:', error);
+  console.error('❌ Error:', error.message);
   
-  // Mongoose validation error
   if (error.name === 'ValidationError') {
     const messages = Object.values(error.errors).map(err => err.message);
     return res.status(400).json({
       success: false,
-      message: messages[0],
-      errors: messages
+      message: messages[0]
     });
   }
   
-  // Mongoose cast error
   if (error.name === 'CastError') {
     return res.status(400).json({
       success: false,
@@ -127,7 +80,6 @@ app.use((error, req, res, next) => {
     });
   }
   
-  // MongoDB duplicate key error
   if (error.code === 11000) {
     const field = Object.keys(error.keyValue)[0];
     return res.status(400).json({
@@ -136,7 +88,6 @@ app.use((error, req, res, next) => {
     });
   }
   
-  // Default error
   res.status(500).json({
     success: false,
     message: process.env.NODE_ENV === 'production' 
@@ -145,11 +96,19 @@ app.use((error, req, res, next) => {
   });
 });
 
-// ✅ Start cron jobs with correct function names
-console.log('\n🕒 Starting cron jobs...');
-startTechnicalCron(); // ✅ Fixed function name
-startNewsUpdateCron(); // ✅ Start news cron
-startMacroUpdateCron(); // ✅ Start macro cron
-console.log('✅ All cron jobs started\n');
+// ✅ SIMPLIFIED: API key validation
+const validateAPIKeys = () => {
+  const requiredKeys = ['TWELVEDATA_API_KEY', 'FRED_API_KEY', 'HUGGINGFACE_API_KEY'];
+  const missing = requiredKeys.filter(key => !process.env[key] || process.env[key] === 'demo');
+  
+  if (missing.length > 0) {
+    console.error(`❌ Missing API keys: ${missing.join(', ')}`);
+    process.exit(1);
+  }
+  
+  console.log('✅ API keys validated');
+};
+
+validateAPIKeys();
 
 module.exports = app;
