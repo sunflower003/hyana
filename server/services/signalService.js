@@ -25,17 +25,38 @@ class SignalService {
     try {
       console.log('🎯 Generating signal...');
       
-      // 1. Lấy dữ liệu từ 3 nguồn
-      const technicalData = await this.getLatestTechnicalData();
-      const newsData = await this.getLatestNewsData();
-      const macroData = await this.getLatestMacroData();
+      // ✅ ADD: More detailed error handling
+      let technicalData, newsData, macroData;
+      
+      try {
+        technicalData = await this.getLatestTechnicalData();
+        console.log(`📊 Technical data: ${technicalData ? '✓' : '✗'}`);
+      } catch (error) {
+        console.error('❌ Technical data error:', error.message);
+        technicalData = null;
+      }
+      
+      try {
+        newsData = await this.getLatestNewsData();
+        console.log(`📰 News data: ${newsData.length} articles`);
+      } catch (error) {
+        console.error('❌ News data error:', error.message);
+        newsData = [];
+      }
+      
+      try {
+        macroData = await this.getLatestMacroData();
+        console.log(`📈 Macro data: ${macroData.length} factors`);
+      } catch (error) {
+        console.error('❌ Macro data error:', error.message);
+        macroData = [];
+      }
       
       if (!technicalData) {
-        console.log('❌ No technical data available');
-        return { success: false, error: 'No technical data' };
+        return { success: false, error: 'No technical data available' };
       }
-
-      // 2. Phân tích từng nguồn
+      
+      // Continue với phần generate signal...
       const technicalAnalysis = this.analyzeTechnical(technicalData);
       const newsAnalysis = this.analyzeNews(newsData);
       const macroAnalysis = this.analyzeMacro(macroData);
@@ -60,11 +81,20 @@ class SignalService {
         macroAnalysis
       );
 
-      console.log(`✅ Signal: ${finalSignal.action} (${finalSignal.confidence}%)`);
+      // ✅ SAVE TO DATABASE HERE
+      const Signal = require('../models/Signal');
+      const savedSignal = await Signal.create(finalSignal);
+      
+      console.log(`✅ Signal saved: ${finalSignal.action} (${finalSignal.confidence}%)`);
 
       return {
         success: true,
-        signal: finalSignal,
+        signal: savedSignal,
+        breakdown: {
+          technical: technicalAnalysis,
+          news: newsAnalysis,
+          macro: macroAnalysis
+        },
         timestamp: new Date()
       };
 

@@ -179,9 +179,48 @@ const triggerSignalUpdate = async (req, res) => {
   }
 };
 
+// Thêm method này vào signalController
+
+const forceSignalGeneration = async (req, res) => {
+  try {
+    console.log('🔄 MANUAL: Force signal generation triggered by admin');
+    
+    const signalService = new SignalService();
+    const result = await signalService.generateSignal();
+
+    if (result.success) {
+      res.status(200).json({
+        success: true,
+        message: 'Tín hiệu được sinh thành công',
+        data: {
+          signal: result.signal,
+          breakdown: result.breakdown,
+          timestamp: new Date()
+        }
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Không thể sinh tín hiệu',
+        error: result.error
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Force Signal Generation Error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi sinh tín hiệu',
+      error: error.message
+    });
+  }
+};
+
+// Export thêm function này
 module.exports = {
   getLatestSignal,
   getSignalHistory,
   getSignalStats,
-  triggerSignalUpdate
+  triggerSignalUpdate,
+  forceSignalGeneration // ✅ NEW
 };

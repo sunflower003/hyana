@@ -101,6 +101,28 @@ const SignalDashboard = () => {
     }
   };
 
+  const handleForceUpdate = async () => {
+    try {
+      setSignalData(prev => ({ ...prev, loading: true, error: null }));
+      const response = await api.post('/api/signal/force');
+      
+      if (response.data.success) {
+        console.log('✅ Force signal generation successful');
+        // Refresh data
+        await fetchLatestSignal();
+      }
+    } catch (error) {
+      console.error('❌ Force signal generation failed:', error);
+      setSignalData(prev => ({ 
+        ...prev, 
+        loading: false, 
+        error: error.response?.data?.message || error.message 
+      }));
+    } finally {
+      setSignalData(prev => ({ ...prev, loading: false }));
+    }
+  };
+
   const getActionIcon = (action) => {
     switch (action) {
       case 'BUY': return '📈';
@@ -533,6 +555,13 @@ const SignalDashboard = () => {
           className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
         >
           🔄 Tạo tín hiệu mới
+        </button>
+        
+        <button 
+          onClick={handleForceUpdate}
+          className="px-3 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600"
+        >
+          Force Generate
         </button>
       </div>
     </div>
