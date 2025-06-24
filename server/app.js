@@ -4,10 +4,12 @@ const connectDB = require('./utils/database');
 const authRoutes = require('./routes/authRoute');
 const technicalRoutes = require('./routes/technicalRoute');
 const newsRoutes = require('./routes/newsRoute'); // ✅ Add news routes
+const econRoutes = require('./routes/econRoute'); // ✅ Add economic routes
 
 // ✅ Fix: Import correct function names from cron jobs
 const { startTechnicalCron } = require('./cron/updateTechnical'); // ✅ Fixed function name
 const { startNewsUpdateCron } = require('./cron/updateNews'); // ✅ Add news cron
+const { startMacroUpdateCron } = require('./cron/updateMacro'); // ✅ Add macro cron
 
 const app = express();
 
@@ -40,6 +42,7 @@ connectDB();
 app.use('/api/auth', authRoutes);
 app.use('/api/technical', technicalRoutes);
 app.use('/api/news', newsRoutes); // ✅ Add news routes
+app.use('/api/econ', econRoutes); // ✅ Add economic routes
 
 // Health check route
 app.get('/api/health', (req, res) => {
@@ -51,8 +54,8 @@ app.get('/api/health', (req, res) => {
     features: {
       auth: 'active',
       technical: 'active',
-      news: 'active', // ✅ Updated
-      economic: 'coming soon'
+      news: 'active',
+      economic: 'active' // ✅ Updated
     }
   });
 });
@@ -91,9 +94,13 @@ app.use('*', (req, res) => {
       'GET /api/technical/recent',
       'GET /api/technical/stats',
       'POST /api/technical/update',
-      'GET /api/news/latest', // ✅ Add news routes
+      'GET /api/news/latest',
       'GET /api/news/sentiment',
-      'POST /api/news/update'
+      'POST /api/news/update',
+      'GET /api/econ/latest', // ✅ Add economic routes
+      'GET /api/econ/summary',
+      'GET /api/econ/dxy',
+      'POST /api/econ/update'
     ]
   });
 });
@@ -142,6 +149,7 @@ app.use((error, req, res, next) => {
 console.log('\n🕒 Starting cron jobs...');
 startTechnicalCron(); // ✅ Fixed function name
 startNewsUpdateCron(); // ✅ Start news cron
+startMacroUpdateCron(); // ✅ Start macro cron
 console.log('✅ All cron jobs started\n');
 
 module.exports = app;

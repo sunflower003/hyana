@@ -74,3 +74,65 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/* ✅ IMPROVED: Custom Scrollbar with better styling */
+.news-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #71717a #27272a;
+}
+
+.news-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.news-scrollbar::-webkit-scrollbar-track {
+  background: #27272a;
+  border-radius: 3px;
+}
+
+.news-scrollbar::-webkit-scrollbar-thumb {
+  background: #71717a;
+  border-radius: 3px;
+  border: 1px solid #27272a;
+}
+
+.news-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa;
+}
+
+/* ✅ Force scrollbar to always show when content overflows */
+.news-scrollbar {
+  overflow-y: scroll !important;
+}
+
+/* ✅ Fallback for older browsers */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #52525b #27272a;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #27272a;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #52525b;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #71717a;
+}
+
+/* ✅ Line clamp utility for text truncation */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

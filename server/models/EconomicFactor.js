@@ -5,7 +5,8 @@ const economicFactorSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Event name is required'],
     maxlength: [200, 'Event name must be less than 200 characters'],
-    trim: true
+    trim: true,
+    index: true
   },
   
   releaseDate: {
@@ -14,31 +15,42 @@ const economicFactorSchema = new mongoose.Schema({
     index: true
   },
   
-  // Economic Data Values
+  // Economic data values
   actual: {
     type: Number,
-    required: [true, 'Actual value is required']
+    default: null
   },
   
   forecast: {
     type: Number,
-    required: [true, 'Forecast value is required']
+    default: null
   },
   
   previous: {
     type: Number,
-    required: [true, 'Previous value is required']
+    default: null
   },
   
-  // Analysis Results
+  // For DXY and other price data
+  change: {
+    type: Number,
+    default: null
+  },
+  
+  changePercent: {
+    type: Number,
+    default: null
+  },
+  
+  // AI Analysis Results
   sentiment: {
     type: String,
     enum: [
-      'hawkish_usd',     // USD mạnh -> vàng giảm
       'dovish_usd',      // USD yếu -> vàng tăng
-      'bullish_gold',    // Trực tiếp tích cực cho vàng
-      'bearish_gold',    // Trực tiếp tiêu cực cho vàng
-      'neutral'
+      'hawkish_usd',     // USD mạnh -> vàng giảm
+      'neutral',         // Trung tính
+      'risk_on',         // Thích rủi ro -> vàng giảm
+      'risk_off'         // Tránh rủi ro -> vàng tăng
     ],
     required: [true, 'Sentiment is required']
   },
@@ -49,97 +61,87 @@ const economicFactorSchema = new mongoose.Schema({
     required: [true, 'Impact on gold is required']
   },
   
-  note: {
-    type: String,
-    required: [true, 'Analysis note is required'],
-    maxlength: [500, 'Note must be less than 500 characters']
+  confidence: {
+    type: Number,
+    min: [0, 'Confidence must be between 0-100'],
+    max: [100, 'Confidence must be between 0-100'],
+    required: [true, 'Confidence is required']
   },
   
-  // Event Classification
+  summary: {
+    type: String,
+    required: [true, 'Summary is required'],
+    maxlength: [500, 'Summary must be less than 500 characters']
+  },
+  
+  // Categories
   category: {
     type: String,
     enum: [
-      'inflation',       // CPI, PPI, PCE
-      'employment',      // NFP, Unemployment Rate
-      'fed_policy',      // Fed Rate, FOMC
-      'gdp',            // GDP, GDP Growth
-      'retail',         // Retail Sales, Consumer Spending
-      'manufacturing',   // PMI, Industrial Production
-      'housing',        // Housing Starts, Sales
-      'trade',          // Trade Balance, Exports/Imports
+      'fed_policy',        // Fed & monetary policy
+      'inflation',         // CPI, PPI, inflation data
+      'employment',        // Jobs, unemployment
+      'economic_growth',   // GDP, recession, expansion
+      'consumer_data',     // Retail sales, consumer confidence
+      'currency',          // DXY, forex
+      'treasury',          // Bond yields
       'other'
     ],
-    required: [true, 'Category is required']
+    default: 'other'
   },
   
-  country: {
-    type: String,
-    default: 'US',
-    enum: ['US', 'EU', 'UK', 'CN', 'JP', 'Other']
-  },
-  
-  // Impact metrics
   importance: {
     type: String,
     enum: ['low', 'medium', 'high'],
-    required: [true, 'Importance level is required']
+    default: 'medium'
   },
   
-  deviation: {
-    type: Number,
-    default: 0 // Actual vs Forecast deviation
-  },
-  
-  deviationPercent: {
-    type: Number,
-    default: 0
-  },
-  
-  // Data source
-  dataSource: {
+  // Processing metadata
+  source: {
     type: String,
-    default: 'fred',
-    enum: ['fred', 'finnhub', 'forexfactory', 'manual']
+    default: 'Finnhub'
+  },
+  
+  isProcessed: {
+    type: Boolean,
+    default: true
   }
   
 }, {
-  timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  timestamps: true
 });
 
-// Pre-save middleware để tính deviation
-economicFactorSchema.pre('save', function(next) {
-  if (this.actual !== undefined && this.forecast !== undefined) {
-    this.deviation = this.actual - this.forecast;
-    
-    if (this.forecast !== 0) {
-      this.deviationPercent = ((this.actual - this.forecast) / Math.abs(this.forecast) * 100);
-    }
-  }
-  next();
-});
-
-// Indexes
+// Indexes for better query performance
 economicFactorSchema.index({ releaseDate: -1 });
+economicFactorSchema.index({ sentiment: 1, impactOnGold: 1 });
 economicFactorSchema.index({ category: 1, releaseDate: -1 });
 economicFactorSchema.index({ importance: 1, releaseDate: -1 });
-economicFactorSchema.index({ impactOnGold: 1, releaseDate: -1 });
 
-// Static methods
-economicFactorSchema.statics.getRecentEvents = function(days = 7) {
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - days);
-  
-  return this.find({
-    releaseDate: { $gte: startDate }
-  }).sort({ releaseDate: -1 });
+// Compound index for recent important events
+economicFactorSchema.index({ 
+  importance: 1, 
+  releaseDate: -1, 
+  impactOnGold: 1 
+});
+
+// Static method để lấy events theo impact
+economicFactorSchema.statics.getByImpact = function(impact, limit = 10) {
+  return this.find({ 
+    impactOnGold: impact,
+    releaseDate: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } // 7 ngày gần nhất
+  })
+  .sort({ releaseDate: -1, confidence: -1 })
+  .limit(limit);
 };
 
+// Static method để lấy events theo category
 economicFactorSchema.statics.getByCategory = function(category, limit = 10) {
-  return this.find({ category })
-    .sort({ releaseDate: -1 })
-    .limit(limit);
+  return this.find({ 
+    category: category,
+    releaseDate: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } // 30 ngày gần nhất
+  })
+  .sort({ releaseDate: -1 })
+  .limit(limit);
 };
 
 module.exports = mongoose.model('EconomicFactor', economicFactorSchema);

@@ -11,11 +11,43 @@ const NewsDashboard = () => {
   });
 
   const [selectedCategory, setSelectedCategory] = useState('all');
+  // ✅ NEW: State for modal
+  const [selectedNews, setSelectedNews] = useState(null);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     fetchNewsData();
     fetchSentimentSummary();
   }, [selectedCategory]);
+
+  // ✅ NEW: Function to open news detail modal
+  const openNewsDetail = (news) => {
+    setSelectedNews(news);
+    setShowModal(true);
+    // Prevent body scroll when modal is open
+    document.body.style.overflow = 'hidden';
+  };
+
+  // ✅ NEW: Function to close modal
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedNews(null);
+    // Restore body scroll
+    document.body.style.overflow = 'unset';
+  };
+
+  // ✅ NEW: Handle escape key to close modal
+  useEffect(() => {
+    const handleEsc = (event) => {
+      if (event.keyCode === 27) {
+        closeModal();
+      }
+    };
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, []);
 
   const fetchNewsData = async () => {
     try {
@@ -109,6 +141,18 @@ const NewsDashboard = () => {
     }
   };
 
+  const getSentimentText = (sentiment) => {
+    switch (sentiment) {
+      case 'dovish_usd': return 'Fed nới lỏng';
+      case 'hawkish_usd': return 'Fed thắt chặt';
+      case 'risk_off': return 'Tránh rủi ro';
+      case 'risk_on': return 'Thích rủi ro';
+      case 'bullish_gold': return 'Tăng giá vàng';
+      case 'bearish_gold': return 'Giảm giá vàng';
+      default: return 'Trung tính';
+    }
+  };
+
   const categories = [
     { value: 'all', label: 'Tất cả' },
     { value: 'fed_policy', label: 'Fed Policy' },
@@ -117,9 +161,6 @@ const NewsDashboard = () => {
     { value: 'geopolitical', label: 'Địa chính trị' },
     { value: 'commodities', label: 'Hàng hóa' }
   ];
-
-  // ✅ FIXED: Check for development mode using Vite environment
-  const isDevelopment = import.meta.env.MODE === 'development';
 
   if (newsData.loading) {
     return (
@@ -133,169 +174,304 @@ const NewsDashboard = () => {
   }
 
   return (
-    <div className="bg-zinc-900 p-6 rounded-xl">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-xl font-semibold text-blue-500">📰 Phân tích tin tức AI</h3>
-        <button 
-          onClick={fetchNewsData}
-          className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-        >
-          🔄 Refresh
-        </button>
-      </div>
+    <>
+      <div className="bg-zinc-900 p-6 rounded-xl flex flex-col h-full">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-semibold text-blue-500">📰 Phân tích tin tức AI</h3>
+          <button 
+            onClick={fetchNewsData}
+            className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+          >
+            🔄 Refresh
+          </button>
+        </div>
 
-      {/* Sentiment Summary */}
-      {newsData.sentiment && (
-        <div className="mb-6 p-4 bg-zinc-800 rounded-lg">
-          <h4 className="text-sm font-medium text-zinc-300 mb-3">📊 Sentiment 24h</h4>
-          
-          {/* ✅ FIXED: Use Vite environment check */}
-          {isDevelopment && newsData.sentiment.debug && (
-            <div className="mb-2 text-xs text-zinc-500 font-mono bg-zinc-900 p-2 rounded">
-              <div className="text-yellow-400 mb-1">🐛 Debug Info:</div>
-              <pre>{JSON.stringify(newsData.sentiment.debug, null, 2)}</pre>
-            </div>
-          )}
-          
-          <div className="grid grid-cols-4 gap-4 text-center">
-            <div>
-              <div className="text-lg font-bold text-white">
-                {newsData.sentiment.last24Hours?.total || 0}
+        {/* Sentiment Summary */}
+        {newsData.sentiment && (
+          <div className="mb-6 p-4 bg-zinc-800 rounded-lg flex-shrink-0">
+            <h4 className="text-sm font-medium text-zinc-300 mb-3">📊 Sentiment 24h</h4>
+            
+            <div className="grid grid-cols-4 gap-4 text-center">
+              <div>
+                <div className="text-lg font-bold text-white">
+                  {newsData.sentiment.last24Hours?.total || 0}
+                </div>
+                <div className="text-xs text-zinc-400">Tổng tin</div>
               </div>
-              <div className="text-xs text-zinc-400">Tổng tin</div>
-            </div>
-            <div>
-              <div className="text-lg font-bold text-green-500">
-                {newsData.sentiment.last24Hours?.positive || 0}
+              <div>
+                <div className="text-lg font-bold text-green-500">
+                  {newsData.sentiment.last24Hours?.positive || 0}
+                </div>
+                <div className="text-xs text-zinc-400">Tích cực</div>
               </div>
-              <div className="text-xs text-zinc-400">Tích cực</div>
-            </div>
-            <div>
-              <div className="text-lg font-bold text-red-500">
-                {newsData.sentiment.last24Hours?.negative || 0}
+              <div>
+                <div className="text-lg font-bold text-red-500">
+                  {newsData.sentiment.last24Hours?.negative || 0}
+                </div>
+                <div className="text-xs text-zinc-400">Tiêu cực</div>
               </div>
-              <div className="text-xs text-zinc-400">Tiêu cực</div>
-            </div>
-            <div>
-              <div className="text-lg font-bold text-yellow-500">
-                {newsData.sentiment.last24Hours?.neutral || 0}
+              <div>
+                <div className="text-lg font-bold text-yellow-500">
+                  {newsData.sentiment.last24Hours?.neutral || 0}
+                </div>
+                <div className="text-xs text-zinc-400">Trung tính</div>
               </div>
-              <div className="text-xs text-zinc-400">Trung tính</div>
             </div>
-          </div>
-          
-          <div className="mt-3 text-center">
-            <span className="text-sm text-zinc-400">Xu hướng: </span>
-            <span className={`font-medium ${
-              newsData.sentiment.last24Hours?.sentiment === 'bullish' ? 'text-green-500' :
-              newsData.sentiment.last24Hours?.sentiment === 'bearish' ? 'text-red-500' : 'text-yellow-500'
-            }`}>
-              {newsData.sentiment.last24Hours?.sentiment === 'bullish' ? '🐂 Tăng giá' :
-               newsData.sentiment.last24Hours?.sentiment === 'bearish' ? '🐻 Giảm giá' : 
-               newsData.sentiment.last24Hours?.sentiment === 'no_data' ? '📊 Chưa có dữ liệu 24h' : '⚖️ Trung tính'}
-            </span>
-          </div>
+            
+            <div className="mt-3 text-center">
+              <span className="text-sm text-zinc-400">Xu hướng: </span>
+              <span className={`font-medium ${
+                newsData.sentiment.last24Hours?.sentiment === 'bullish' ? 'text-green-500' :
+                newsData.sentiment.last24Hours?.sentiment === 'bearish' ? 'text-red-500' : 'text-yellow-500'
+              }`}>
+                {newsData.sentiment.last24Hours?.sentiment === 'bullish' ? '🐂 Tăng giá' :
+                 newsData.sentiment.last24Hours?.sentiment === 'bearish' ? '🐻 Giảm giá' : 
+                 newsData.sentiment.last24Hours?.sentiment === 'no_data' ? '📊 Chưa có dữ liệu 24h' : '⚖️ Trung tính'}
+              </span>
+            </div>
 
-          {/* ✅ Show overall stats if no 24h data */}
-          {newsData.sentiment.last24Hours?.total === 0 && newsData.sentiment.overall && (
-            <div className="mt-4 p-3 bg-zinc-700 rounded">
-              <div className="text-xs text-zinc-400 mb-2">📈 Thống kê tổng thể:</div>
-              <div className="flex justify-around text-xs">
-                {newsData.sentiment.overall.map((stat, index) => (
-                  <div key={index} className="text-center">
-                    <div className="font-bold">{stat.count}</div>
-                    <div className="text-zinc-500 capitalize">{stat._id}</div>
+            {/* Show overall stats if no 24h data */}
+            {newsData.sentiment.last24Hours?.total === 0 && newsData.sentiment.overall && (
+              <div className="mt-4 p-3 bg-zinc-700 rounded">
+                <div className="text-xs text-zinc-400 mb-2">📈 Thống kê tổng thể:</div>
+                <div className="flex justify-around text-xs">
+                  {newsData.sentiment.overall.map((stat, index) => (
+                    <div key={index} className="text-center">
+                      <div className="font-bold">{stat.count}</div>
+                      <div className="text-zinc-500 capitalize">{stat._id}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Category Filter */}
+        <div className="mb-4 flex-shrink-0">
+          <div className="flex flex-wrap gap-2">
+            {categories.map(cat => (
+              <button
+                key={cat.value}
+                onClick={() => setSelectedCategory(cat.value)}
+                className={`px-3 py-1 text-xs rounded-full transition ${
+                  selectedCategory === cat.value
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* News List with Click Handler */}
+        <div className="flex-1 overflow-hidden">
+          {newsData.error ? (
+            <div className="text-center text-red-400 py-4">
+              {newsData.error}
+            </div>
+          ) : newsData.latest.length === 0 ? (
+            <div className="text-center text-zinc-500 py-8">
+              <p>📰 Chưa có tin tức nào</p>
+              <button 
+                onClick={handleManualUpdate}
+                className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Cập nhật tin tức
+              </button>
+            </div>
+          ) : (
+            <div 
+              className="h-full news-scrollbar pr-2"
+              style={{
+                maxHeight: '400px',
+                overflowY: 'scroll'
+              }}
+            >
+              <div className="space-y-2">
+                {newsData.latest.map((news, index) => (
+                  // ✅ NEW: Add click handler and cursor pointer
+                  <div 
+                    key={index} 
+                    className="bg-zinc-800 p-3 rounded-lg hover:bg-zinc-700 transition h-20 overflow-hidden cursor-pointer"
+                    onClick={() => openNewsDetail(news)}
+                  >
+                    <div className="flex justify-between items-start h-full">
+                      {/* Left side: News content */}
+                      <div className="flex-1 min-w-0 pr-3">
+                        {/* Title with 2 lines max */}
+                        <h4 className="text-sm font-medium text-white line-clamp-2 leading-tight mb-1">
+                          {news.title}
+                        </h4>
+                        
+                        {/* Bottom info in one line */}
+                        <div className="flex items-center justify-between text-xs text-zinc-400">
+                          <div className="flex items-center space-x-2">
+                            <span className="truncate max-w-20">{news.source}</span>
+                            <span className={`px-1 py-0.5 rounded text-xs ${getSentimentColor(news.aiSentiment)} bg-zinc-700`}>
+                              {news.aiSentiment}
+                            </span>
+                          </div>
+                          <span className="text-xs">
+                            {new Date(news.publishedAt).toLocaleDateString('vi-VN')}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Right side: Impact and confidence */}
+                      <div className="flex flex-col items-end justify-center space-y-1 flex-shrink-0">
+                        <span className={`text-lg ${getImpactColor(news.impactOnGold)}`}>
+                          {getImpactIcon(news.impactOnGold)}
+                        </span>
+                        <span className="text-xs bg-zinc-700 px-2 py-0.5 rounded text-zinc-300">
+                          {news.confidence}%
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
         </div>
-      )}
-
-      {/* Category Filter */}
-      <div className="mb-4">
-        <div className="flex flex-wrap gap-2">
-          {categories.map(cat => (
-            <button
-              key={cat.value}
-              onClick={() => setSelectedCategory(cat.value)}
-              className={`px-3 py-1 text-xs rounded-full transition ${
-                selectedCategory === cat.value
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
       </div>
 
-      {/* News List */}
-      {newsData.error ? (
-        <div className="text-center text-red-400 py-4">
-          {newsData.error}
-        </div>
-      ) : newsData.latest.length === 0 ? (
-        <div className="text-center text-zinc-500 py-8">
-          <p>📰 Chưa có tin tức nào</p>
-          <button 
-            onClick={handleManualUpdate}
-            className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+      {/* ✅ NEW: News Detail Modal */}
+      {showModal && selectedNews && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div 
+            className="bg-zinc-900 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
           >
-            Cập nhật tin tức
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {newsData.latest.map((news, index) => (
-            <div key={index} className="bg-zinc-800 p-4 rounded-lg hover:bg-zinc-750 transition">
-              <div className="flex justify-between items-start mb-2">
-                <h4 className="text-sm font-medium text-white line-clamp-2 flex-1">
-                  {news.title}
-                </h4>
-                <div className="flex items-center ml-3 space-x-2">
-                  <span className={`text-lg ${getImpactColor(news.impactOnGold)}`}>
-                    {getImpactIcon(news.impactOnGold)}
-                  </span>
-                  <span className="text-xs bg-zinc-700 px-2 py-1 rounded text-zinc-300">
-                    {news.confidence}%
-                  </span>
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-6 border-b border-zinc-700">
+              <div className="flex items-center space-x-3">
+                <span className={`text-2xl ${getImpactColor(selectedNews.impactOnGold)}`}>
+                  {getImpactIcon(selectedNews.impactOnGold)}
+                </span>
+                <div>
+                  <h2 className="text-xl font-semibold text-white">Chi tiết tin tức</h2>
+                  <p className="text-sm text-zinc-400">{selectedNews.source}</p>
                 </div>
               </div>
-              
-              <div className="flex justify-between items-center text-xs text-zinc-400">
-                <span>{news.source}</span>
-                <span>{new Date(news.publishedAt).toLocaleDateString('vi-VN')}</span>
+              <button
+                onClick={closeModal}
+                className="text-zinc-400 hover:text-white transition-colors text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto max-h-[70vh]">
+              {/* Title */}
+              <h1 className="text-2xl font-bold text-white mb-4 leading-tight">
+                {selectedNews.title}
+              </h1>
+
+              {/* Meta Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div className="bg-zinc-800 p-4 rounded-lg">
+                  <h3 className="text-sm font-medium text-zinc-300 mb-2">📊 Phân tích AI</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">Sentiment:</span>
+                      <span className={`font-medium ${getSentimentColor(selectedNews.aiSentiment)}`}>
+                        {getSentimentText(selectedNews.aiSentiment)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">Tác động vàng:</span>
+                      <span className={`font-medium ${getImpactColor(selectedNews.impactOnGold)}`}>
+                        {selectedNews.impactOnGold === 'positive' ? 'Tích cực' :
+                         selectedNews.impactOnGold === 'negative' ? 'Tiêu cực' : 'Trung tính'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">Độ tin cậy:</span>
+                      <span className="font-medium text-blue-400">{selectedNews.confidence}%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-zinc-800 p-4 rounded-lg">
+                  <h3 className="text-sm font-medium text-zinc-300 mb-2">ℹ️ Thông tin</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">Nguồn:</span>
+                      <span className="text-white">{selectedNews.source}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">Danh mục:</span>
+                      <span className="text-blue-400 capitalize">{selectedNews.category?.replace('_', ' ')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">Ngày:</span>
+                      <span className="text-white">
+                        {new Date(selectedNews.publishedAt).toLocaleString('vi-VN')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              
-              <div className="mt-2 flex items-center justify-between">
-                <span className={`text-xs px-2 py-1 rounded ${getSentimentColor(news.aiSentiment)} bg-zinc-700`}>
-                  {news.aiSentiment}
-                </span>
-                
-                {news.keywords && news.keywords.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {news.keywords.slice(0, 3).map((keyword, i) => (
-                      <span key={i} className="text-xs bg-blue-900 text-blue-300 px-2 py-1 rounded">
+
+              {/* AI Summary */}
+              {selectedNews.summary && (
+                <div className="bg-zinc-800 p-4 rounded-lg mb-6">
+                  <h3 className="text-sm font-medium text-zinc-300 mb-2">🤖 Tóm tắt AI</h3>
+                  <p className="text-white text-sm leading-relaxed">
+                    {selectedNews.summary}
+                  </p>
+                </div>
+              )}
+
+              {/* Content */}
+              <div className="bg-zinc-800 p-4 rounded-lg mb-6">
+                <h3 className="text-sm font-medium text-zinc-300 mb-2">📄 Nội dung</h3>
+                <div className="text-white text-sm leading-relaxed whitespace-pre-wrap">
+                  {selectedNews.content || 'Nội dung không có sẵn.'}
+                </div>
+              </div>
+
+              {/* Keywords */}
+              {selectedNews.keywords && selectedNews.keywords.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-medium text-zinc-300 mb-2">🏷️ Từ khóa</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedNews.keywords.map((keyword, index) => (
+                      <span 
+                        key={index}
+                        className="px-2 py-1 bg-blue-900 text-blue-300 text-xs rounded"
+                      >
                         {keyword}
                       </span>
                     ))}
                   </div>
-                )}
-              </div>
-              
-              {news.summary && (
-                <div className="mt-2 text-xs text-zinc-300 italic">
-                  {news.summary}
+                </div>
+              )}
+
+              {/* External Link */}
+              {selectedNews.url && (
+                <div className="border-t border-zinc-700 pt-4">
+                  <a
+                    href={selectedNews.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center space-x-2 text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    <span>🔗</span>
+                    <span>Đọc bài gốc</span>
+                    <span>↗</span>
+                  </a>
                 </div>
               )}
             </div>
-          ))}
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 
